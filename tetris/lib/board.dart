@@ -6,7 +6,6 @@ import 'package:tetris/pixel.dart';
 import 'package:tetris/value.dart';
 
 /*
-
 GAME BOARD
 
 This a 2x2 grid with null representing an empty space.
