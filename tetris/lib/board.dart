@@ -5,15 +5,7 @@ import 'package:tetris/piece.dart';
 import 'package:tetris/pixel.dart';
 import 'package:tetris/value.dart';
 
-/*
-GAME BOARD
-
-This a 2x2 grid with null representing an empty space.
-A non empty space will have the color  to represent the landing pieces.
-
-*/
-
-//Game board
+// Game board
 List<List<Tetromino?>> gameBoard = List.generate(
   colLength,
   (i) => List.generate(
@@ -23,77 +15,101 @@ List<List<Tetromino?>> gameBoard = List.generate(
 );
 
 class GameBoard extends StatefulWidget {
-  const GameBoard({super.key});
+  const GameBoard({Key? key}) : super(key: key);
 
   @override
   State<GameBoard> createState() => _GameBoardState();
 }
 
 class _GameBoardState extends State<GameBoard> {
-  //Current tetris piece
   Piece currentPiece = Piece(type: Tetromino.T);
+  int currentScore = 0;
+  bool gameOver = false;
 
   @override
   void initState() {
     super.initState();
-
-    //start game when app starts
     startGame();
   }
 
   void startGame() {
     currentPiece.initializePiece();
-
-    //Frame refresh rate
     Duration frameRate = const Duration(milliseconds: 400);
     gameLoop(frameRate);
   }
 
-  //Game loop
   void gameLoop(Duration frameRate) {
     Timer.periodic(frameRate, (timer) {
       setState(() {
-        //check the landing pieces
+        clearLines();
         checkLanding();
-        //move current piece down
+
+        if (gameOver) {
+          timer.cancel();
+          showGameOverDialog();
+        }
+
         currentPiece.movePiece(Direction.down);
       });
     });
   }
 
-  //Collision detection
-  //Check for collision in a future position => bool
+  void showGameOverDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('GAME OVER'),
+        content: Text('Score: $currentScore'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              restartGame();
+              Navigator.pop(context);
+            },
+            child: const Text('PLAY AGAIN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void restartGame() {
+    gameBoard = List.generate(
+      colLength,
+      (i) => List.generate(
+        rowLength,
+        (j) => null,
+      ),
+    );
+
+    gameOver = false;
+    currentScore = 0;
+    createNewPiece();
+    startGame();
+  }
+
   bool checkCollision(Direction direction) {
-    //Checking every position
     for (int i = 0; i < currentPiece.position.length; i++) {
-      //Calculating the row and column of the current position
       int row = (currentPiece.position[i] / rowLength).floor();
       int col = currentPiece.position[i] % rowLength;
 
-      //Adjusting the row and column based on the direction
       if (direction == Direction.left) {
-        col += 1;
+        col -= 1; // Adjust for left movement
       } else if (direction == Direction.right) {
-        col -= 1;
+        col += 1; // Adjust for right movement
       } else if (direction == Direction.down) {
-        row += 1;
+        row += 1; // Adjust for downward movement
       }
 
-      //Check whether the piece is droopy or not
-      if (row >= colLength || col < 0 || col >= rowLength) {
+      if (row >= colLength || col < 0 || col >= rowLength || gameBoard[row][col] != null) {
         return true;
       }
     }
-
-    //When no collisions are detected
     return false;
   }
 
-  //Checking where the piece is landing
   void checkLanding() {
-    //Down
     if (checkCollision(Direction.down)) {
-      //Mark the position occupied
       for (int i = 0; i < currentPiece.position.length; i++) {
         int row = (currentPiece.position[i] / rowLength).floor();
         int col = currentPiece.position[i] % rowLength;
@@ -101,28 +117,22 @@ class _GameBoardState extends State<GameBoard> {
           gameBoard[row][col] = currentPiece.type;
         }
       }
-
-      //After landing
       createNewPiece();
     }
   }
 
-  //Creating a new piece
   void createNewPiece() {
-    //create a random object to generate random tetromino type
     Random rand = Random();
-
-    //craete new piece with random type
-    Tetromino randomType =
-        Tetromino.values[rand.nextInt(Tetromino.values.length)];
-
+    Tetromino randomType = Tetromino.values[rand.nextInt(Tetromino.values.length)];
     currentPiece = Piece(type: randomType);
     currentPiece.initializePiece();
+
+    if (isGameOver()) {
+      gameOver = true;
+    }
   }
 
-  //move left
   void moveLeft() {
-    //check whether the move is valid
     if (!checkCollision(Direction.left)) {
       setState(() {
         currentPiece.movePiece(Direction.left);
@@ -130,17 +140,48 @@ class _GameBoardState extends State<GameBoard> {
     }
   }
 
-  //rotate
-  void rotatePiece() {}
+  void rotatePiece() {
+    setState(() {
+      currentPiece.rotatePiece();
+    });
+  }
 
-  //move right
   void moveRight() {
-    //check whether the move is valid
     if (!checkCollision(Direction.right)) {
       setState(() {
         currentPiece.movePiece(Direction.right);
       });
     }
+  }
+
+  void clearLines() {
+    for (int row = colLength - 1; row >= 0; row--) {
+      bool rowIsFull = true;
+
+      for (int col = 0; col < rowLength; col++) {
+        if (gameBoard[row][col] == null) {
+          rowIsFull = false;
+          break;
+        }
+      }
+
+      if (rowIsFull) {
+        for (int r = row; r > 0; r--) {
+          gameBoard[r] = List.from(gameBoard[r - 1]);
+        }
+        gameBoard[0] = List.generate(rowLength, (index) => null);
+        currentScore++;
+      }
+    }
+  }
+
+  bool isGameOver() {
+    for (int col = 0; col < rowLength; col++) {
+      if (gameBoard[0][col] != null) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override
@@ -149,7 +190,6 @@ class _GameBoardState extends State<GameBoard> {
       backgroundColor: Colors.black,
       body: Column(
         children: [
-          //GAME GRID
           Expanded(
             child: GridView.builder(
               itemCount: rowLength * colLength,
@@ -158,63 +198,43 @@ class _GameBoardState extends State<GameBoard> {
                 crossAxisCount: rowLength,
               ),
               itemBuilder: (context, index) {
-                //Knowing the rows and column
                 int row = (index / rowLength).floor();
                 int col = index % rowLength;
 
-                //Current piece
                 if (currentPiece.position.contains(index)) {
-                  return Pixel(
-                    child: index,
-                    color: currentPiece.color,
-                  );
-                }
-
-                //Landed pieces
-                else if (gameBoard[row][col] != null) {
+                  return Pixel(color: currentPiece.color);
+                } else if (gameBoard[row][col] != null) {
                   final Tetromino? tetrominoType = gameBoard[row][col];
-                  return Pixel(
-                    color: tetrominoColors[tetrominoType],
-                    child: '',
-                  );
-                }
-
-                //Blank pixel
-                else {
-                  return Pixel(
-                    child: index,
-                    color: Colors.grey[900],
-                  );
+                  return Pixel(color: tetrominoColors[tetrominoType] ?? Colors.white);
+                } else {
+                  return Pixel(color: Colors.grey[900]!);
                 }
               },
             ),
           ),
-
-          //GAME CONTROLS
+          Text(
+            'Score: $currentScore',
+            style: const TextStyle(color: Colors.white),
+          ),
           Padding(
-            padding: const EdgeInsets.only(bottom: 50.0),
+            padding: const EdgeInsets.only(bottom: 50.0, top: 50.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                //left
                 IconButton(
                   onPressed: moveLeft,
                   color: Colors.white,
-                  icon: Icon(Icons.arrow_back_ios_new),
+                  icon: const Icon(Icons.arrow_back_ios_new),
                 ),
-
-                //rotate
                 IconButton(
                   onPressed: rotatePiece,
                   color: Colors.white,
-                  icon: Icon(Icons.rotate_right),
+                  icon: const Icon(Icons.rotate_right),
                 ),
-
-                //right
                 IconButton(
                   onPressed: moveRight,
                   color: Colors.white,
-                  icon: Icon(Icons.arrow_forward_ios),
+                  icon: const Icon(Icons.arrow_forward_ios),
                 ),
               ],
             ),
