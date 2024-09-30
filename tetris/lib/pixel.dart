@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 
 class Pixel extends StatelessWidget {
-  var color;
-  var child;
+  const Pixel({required this.color, Key? key}) : super(key: key); // Use const constructor for better performance
 
-  Pixel({super.key, required this.color, required this.child});
+  final Color color; // Specify the color type
 
   @override
   Widget build(BuildContext context) {
@@ -13,13 +12,7 @@ class Pixel extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(5),
       ),
-      margin: EdgeInsets.all(1),
-      child: Center(
-        child: Text(
-          child.toString(),
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      margin: const EdgeInsets.all(1),
     );
   }
 }
